@@ -1,9 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,6 +10,509 @@ datasource db {
   url      = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum EstadoProceso {
+  BORRADOR
+  PRESENTADO
+  ADMITIDO
+  CITACION_PENDIENTE
+  CONTESTACION_PENDIENTE
+  AUDIENCIA_PRELIMINAR
+  AUDIENCIA_COMPLEMENTARIA
+  SENTENCIA_PENDIENTE
+  SENTENCIADO
+  APELADO
+  EJECUTORIADO
+  ARCHIVADO
+}
+
+enum TipoProceso {
+  ORDINARIO
+  EXTRAORDINARIO
+  MONITORIO
+  CAUTELAR
+}
+
+enum RolUsuario {
+  CIUDADANO
+  ABOGADO
+  SECRETARIO
+  JUEZ
+}
+
+enum TipoCitacion {
+  PERSONAL
+  CEDULA
+  EDICTO
+  TACITA
+}
+
+enum TipoAudiencia {
+  PRELIMINAR
+  COMPLEMENTARIA
+}
+
+enum EstadoVinculacion {
+  PENDIENTE
+  ACTIVA
+  FINALIZADA
+  RECHAZADA
+}
+
+// ============================================
+// USUARIOS Y ROLES
+// ============================================
+
+model Usuario {
+  id              String       @id @default(cuid())
+  userId          String       @unique
+  rol             RolUsuario
+
+  // Campos comunes
+  ci              String?
+  nombres         String
+  apellidos       String
+  email           String       @unique
+  telefono        String?
+
+  // Específicos por rol
+  registroAbogado String?      @map("registro_abogado") // Solo abogados
+  juzgado         String?                                // Solo secretarios y jueces
+  domicilio       String?                                // Solo ciudadanos
+
+  activo          Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  // Relaciones
+  procesosComoJuez            Proceso[]  @relation("ProcesosJuez")
+  procesosComoAbogado         ParteEnProceso[] @relation("AbogadoRepresenta")
+  citacionesRealizadas        Citacion[]
+  audienciasPresididas        Audiencia[] @relation("AudienciaJuez")
+  sentenciasEmitidas          Sentencia[]
+
+  // Vinculaciones (si es abogado)
+  vinculacionesComoAbogado    VinculacionAbogadoCiudadano[] @relation("VinculacionAbogado")
+
+  // Vinculaciones (si es ciudadano)
+  vinculacionesComoCiudadano  VinculacionAbogadoCiudadano[] @relation("VinculacionCiudadano")
+
+  // Mensajes
+  mensajesEnviados            Mensaje[] @relation("Remitente")
+  mensajesRecibidos           Mensaje[] @relation("Destinatario")
+
+  @@map("usuarios")
+}
+
+model VinculacionAbogadoCiudadano {
+  id              String @id @default(cuid())
+
+  ciudadanoId     String @map("ciudadano_id")
+  ciudadano       Usuario @relation("VinculacionCiudadano", fields: [ciudadanoId], references: [id])
+
+  abogadoId       String @map("abogado_id")
+  abogado         Usuario @relation("VinculacionAbogado", fields: [abogadoId], references: [id])
+
+  procesoId       String? @map("proceso_id") // Opcional: vinculación puede ser general o por proceso
+
+  estado          EstadoVinculacion @default(PENDIENTE)
+  mensaje         String? @db.Text
+  motivoRechazo   String? @db.Text @map("motivo_rechazo")
+
+  fechaInicio     DateTime @default(now()) @map("fecha_inicio")
+  fechaFin        DateTime? @map("fecha_fin")
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([ciudadanoId])
+  @@index([abogadoId])
+  @@index([estado])
+  @@map("vinculaciones_abogado_ciudadano")
+}
+
+// ============================================
+// PROCESOS
+// ============================================
+
+model Proceso {
+  id                String         @id @default(cuid())
+  nurej             String         @unique
+  tipo              TipoProceso
+  estado            EstadoProceso  @default(BORRADOR)
+  materia           String
+  juzgado           String
+  cuantia           Decimal?
+  objetoDemanda     String?        @map("objeto_demanda")
+
+  juezId            String         @map("juez_id")
+  juez              Usuario        @relation("ProcesosJuez", fields: [juezId], references: [id])
+
+  fechaInicio       DateTime       @default(now()) @map("fecha_inicio")
+  fechaEstimadaFin  DateTime?      @map("fecha_estimada_fin")
+  fechaFin          DateTime?      @map("fecha_fin")
+
+  // Relaciones
+  demanda           Demanda?
+  partes            ParteEnProceso[]
+  plazos            Plazo[]
+  documentos        Documento[]
+  citaciones        Citacion[]
+  audiencias        Audiencia[]
+  resoluciones      Resolucion[]
+  sentencia         Sentencia?
+  cautelar          MedidaCautelar?
+  mensajes          Mensaje[]
+
+  activo            Boolean        @default(true)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([estado])
+  @@index([juezId])
+  @@index([nurej])
+  @@map("procesos")
+}
+
+model Demanda {
+  id                String         @id @default(cuid())
+  procesoId         String         @unique @map("proceso_id")
+  proceso           Proceso        @relation(fields: [procesoId], references: [id])
+
+  designacionJuez   String         @map("designacion_juez")
+  objetoDemanda     String         @map("objeto_demanda")
+  hechos            String         @db.Text
+  derecho           String         @db.Text
+  petitorio         String         @db.Text
+  valor             Decimal
+  ofrecimientoPrueba String        @map("ofrecimiento_prueba") @db.Text
+
+  estado            String         @default("BORRADOR") // BORRADOR, PRESENTADA, OBSERVADA, ADMITIDA
+  observaciones     String?        @db.Text
+  fechaAdmision     DateTime?      @map("fecha_admision")
+
+  anexos            Json[]         @default([]) // [{nombre, url, tipo, size, hash}]
+
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@map("demandas")
+}
+
+model ParteEnProceso {
+  id                String         @id @default(cuid())
+  procesoId         String         @map("proceso_id")
+  proceso           Proceso        @relation(fields: [procesoId], references: [id])
+
+  tipo              String         // ACTOR, DEMANDADO, TERCERO
+
+  // Usuario del sistema (si es ciudadano registrado o abogado)
+  usuarioId         String?        @map("usuario_id")
+
+  // Datos de la parte (ciudadano)
+  ci                String?
+  nombres           String
+  apellidos         String
+  edad              Int?
+  estadoCivil       String?        @map("estado_civil")
+  profesion         String?
+  domicilioReal     String?        @map("domicilio_real")
+  domicilioProcesal String?        @map("domicilio_procesal")
+
+  // Abogado representante
+  abogadoId         String?        @map("abogado_id")
+  abogado           Usuario?       @relation("AbogadoRepresenta", fields: [abogadoId], references: [id])
+  abogadoNombres    String?        @map("abogado_nombres")
+  abogadoRegistro   String?        @map("abogado_registro")
+
+  createdAt         DateTime       @default(now())
+
+  @@index([usuarioId])
+  @@index([abogadoId])
+  @@map("partes_en_proceso")
+}
+
+// ============================================
+// CAUTELARES
+// ============================================
+
+model MedidaCautelar {
+  id                String         @id @default(cuid())
+  procesoId         String?        @unique @map("proceso_id")
+  proceso           Proceso?       @relation(fields: [procesoId], references: [id])
+
+  tipo              String         // ANOTACION, EMBARGO, INTERVENCION, SECUESTRO, PROHIBICION
+  fundamentacion    String         @db.Text
+
+  fechaSolicitud    DateTime       @default(now()) @map("fecha_solicitud")
+  fechaEjecucion    DateTime?      @map("fecha_ejecucion")
+  fechaLimite       DateTime?      @map("fecha_limite") // 30 días desde ejecución
+
+  estado            String         @default("SOLICITADA") // SOLICITADA, EJECUTADA, LEVANTADA
+
+  alertaEnviada     Boolean        @default(false) @map("alerta_enviada")
+
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@map("medidas_cautelares")
+}
+
+// ============================================
+// CITACIONES
+// ============================================
+
+model Citacion {
+  id                String         @id @default(cuid())
+  procesoId         String         @map("proceso_id")
+  proceso           Proceso        @relation(fields: [procesoId], references: [id])
+
+  parteId           String         @map("parte_id") // ciudadano demandado
+
+  tipo              TipoCitacion
+  metodo            String         // EMAIL, PRESENCIAL, CEDULA, EDICTO
+
+  secretarioId      String?        @map("secretario_id")
+  secretario        Usuario?       @relation(fields: [secretarioId], references: [id])
+
+  intentos          Json[]         @default([]) // [{fecha, metodo, resultado, evidenciaUrl}]
+
+  fechaValidacion   DateTime?      @map("fecha_validacion")
+  evidencia         Json?          // {fotos: [], descripcion: ""}
+
+  estado            String         @default("PENDIENTE") // PENDIENTE, EXITOSA, FALLIDA
+
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@map("citaciones")
+}
+
+// ============================================
+// AUDIENCIAS
+// ============================================
+
+model Audiencia {
+  id                String         @id @default(cuid())
+  procesoId         String         @map("proceso_id")
+  proceso           Proceso        @relation(fields: [procesoId], references: [id])
+
+  tipo              TipoAudiencia
+  fecha             DateTime
+  duracion          Int?           // minutos
+
+  juezId            String         @map("juez_id")
+  juez              Usuario        @relation("AudienciaJuez", fields: [juezId], references: [id])
+
+  sala              String?        // URL sala virtual (Jitsi/Daily)
+  grabacionUrl      String?        @map("grabacion_url") // Supabase Storage
+  audioUrl          String?        @map("audio_url")     // Audio para Whisper
+  transcripcion     String?        @db.Text
+
+  asistentes        Json[]         @default([]) // [{usuarioId, tipo, rol, horaEntrada, horaSalida}]
+
+  estado            String         @default("PROGRAMADA") // PROGRAMADA, EN_CURSO, FINALIZADA, SUSPENDIDA
+
+  actaUrl           String?        @map("acta_url")
+
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@map("audiencias")
+}
+
+// ============================================
+// RESOLUCIONES Y SENTENCIAS
+// ============================================
+
+model Resolucion {
+  id                String         @id @default(cuid())
+  procesoId         String         @map("proceso_id")
+  proceso           Proceso        @relation(fields: [procesoId], references: [id])
+
+  tipo              String         // PROVIDENCIA, AUTO_INTERLOCUTORIO, AUTO_DEFINITIVO, SENTENCIA
+  contenido         String         @db.Text
+
+  firmadoPorId      String?        @map("firmado_por_id")
+  firmaDigital      String?        @map("firma_digital")
+  hashDocumento     String?        @map("hash_documento")
+
+  fechaEmision      DateTime       @default(now()) @map("fecha_emision")
+  fechaNotificacion DateTime?      @map("fecha_notificacion")
+
+  documentoUrl      String?        @map("documento_url")
+
+  createdAt         DateTime       @default(now())
+
+  @@map("resoluciones")
+}
+
+model Sentencia {
+  id                String         @id @default(cuid())
+  procesoId         String         @unique @map("proceso_id")
+  proceso           Proceso        @relation(fields: [procesoId], references: [id])
+
+  // Estructura Art. 213
+  encabezamiento    String         @db.Text
+  narrativa         String         @db.Text
+  motiva            String         @db.Text
+  resolutiva        String         @db.Text
+
+  juezId            String         @map("juez_id")
+  juez              Usuario        @relation(fields: [juezId], references: [id])
+
+  fechaEmision      DateTime       @default(now()) @map("fecha_emision")
+  firmaDigital      String         @map("firma_digital")
+  hashDocumento     String         @map("hash_documento")
+
+  documentoUrl      String         @map("documento_url")
+
+  // Resultado para notificaciones simplificadas a ciudadanos
+  resultadoActor    String?        @map("resultado_actor") // "FAVORABLE", "DESFAVORABLE", "PARCIAL"
+  resultadoDemandado String?       @map("resultado_demandado")
+
+  estadoNotificacion String        @default("PENDIENTE") @map("estado_notificacion")
+  fechaNotificacion DateTime?      @map("fecha_notificacion")
+
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@map("sentencias")
+}
+
+// ============================================
+// PLAZOS
+// ============================================
+
+model Plazo {
+  id                String         @id @default(cuid())
+  procesoId         String         @map("proceso_id")
+  proceso           Proceso        @relation(fields: [procesoId], references: [id])
+
+  tipo              String         // CONTESTACION, AUDIENCIA, SENTENCIA, etc.
+  descripcion       String
+  articulo          String?        // Art. que lo establece
+
+  fechaInicio       DateTime       @map("fecha_inicio")
+  fechaVencimiento  DateTime       @map("fecha_vencimiento")
+  diasPlazo         Int            @map("dias_plazo")
+
+  estado            String         @default("ACTIVO") // ACTIVO, CUMPLIDO, VENCIDO
+
+  alertasEnviadas   Json[]         @default([]) @map("alertas_enviadas") // [{fecha, tipo, destinatarios}]
+
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([fechaVencimiento])
+  @@index([estado])
+  @@map("plazos")
+}
+
+// ============================================
+// DOCUMENTOS Y ACCESOS
+// ============================================
+
+model Documento {
+  id                String         @id @default(cuid())
+  procesoId         String         @map("proceso_id")
+  proceso           Proceso        @relation(fields: [procesoId], references: [id])
+
+  nombre            String
+  tipo              String         // DEMANDA, CONTESTACION, RESOLUCION, PRUEBA, etc.
+  url               String
+  hashSHA256        String         @map("hash_sha256")
+  size              Int
+  mimeType          String         @map("mime_type")
+
+  uploadedBy        String         @map("uploaded_by") // userId
+  uploadedByRole    String         @map("uploaded_by_role") // CIUDADANO, ABOGADO, SECRETARIO, JUEZ
+
+  // Visibilidad
+  visibleParaCiudadano Boolean @default(true) @map("visible_para_ciudadano")
+
+  createdAt         DateTime       @default(now())
+
+  @@map("documentos")
+}
+
+model AccesoExpediente {
+  id                String         @id @default(cuid())
+  procesoId         String         @map("proceso_id")
+  usuarioId         String         @map("usuario_id")
+
+  accion            String         // VER, DESCARGAR, EDITAR
+  documentoId       String?        @map("documento_id")
+
+  ip                String
+  userAgent         String?        @map("user_agent")
+
+  timestamp         DateTime       @default(now())
+
+  @@index([procesoId])
+  @@index([usuarioId])
+  @@map("accesos_expediente")
+}
+
+// ============================================
+// NOTIFICACIONES Y MENSAJES
+// ============================================
+
+model NotificacionInterna {
+  id                String         @id @default(cuid())
+  usuarioId         String         @map("usuario_id")
+  procesoId         String?        @map("proceso_id")
+
+  tipo              String         // CITACION, RESOLUCION, AUDIENCIA, SENTENCIA, MENSAJE
+  titulo            String
+  mensaje           String         @db.Text
+  mensajeSimple     String?        @db.Text @map("mensaje_simple") // Versión simplificada para ciudadanos
+
+  leida             Boolean        @default(false)
+
+  // Metadata
+  accionUrl         String?        @map("accion_url") // URL a la que debe ir si hace click
+  accionTexto       String?        @map("accion_texto") // Texto del botón de acción
+
+  createdAt         DateTime       @default(now())
+
+  @@index([usuarioId])
+  @@index([leida])
+  @@map("notificaciones_internas")
+}
+
+model Mensaje {
+  id                String         @id @default(cuid())
+  procesoId         String         @map("proceso_id")
+  proceso           Proceso        @relation(fields: [procesoId], references: [id])
+
+  remitenteId       String         @map("remitente_id")
+  remitente         Usuario        @relation("Remitente", fields: [remitenteId], references: [id])
+
+  destinatarioId    String         @map("destinatario_id")
+  destinatario      Usuario        @relation("Destinatario", fields: [destinatarioId], references: [id])
+
+  contenido         String         @db.Text
+  archivoUrl        String?        @map("archivo_url")
+  archivoNombre     String?        @map("archivo_nombre")
+
+  leido             Boolean        @default(false)
+
+  createdAt         DateTime       @default(now())
+
+  @@index([procesoId])
+  @@index([remitenteId])
+  @@index([destinatarioId])
+  @@map("mensajes")
+}
+
+// ============================================
+// LEGACY (mantener por compatibilidad)
+// ============================================
 
 enum UserRole {
   USER
