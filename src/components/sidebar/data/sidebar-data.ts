@@ -1,89 +1,59 @@
 import {
   Home,
-  Phone,
-  PhoneCall,
-  TestTube2,
-  Megaphone,
+  Scale,
+  FileText,
   Users,
-  MessageSquare,
-  Workflow,
-  Database,
-  Command,
+  Calendar,
+  Folder,
 } from "lucide-react";
 import type { SidebarData } from "../types";
 
 export const sidebarData: SidebarData = {
   user: {
-    name: "satnaing",
-    email: "satnaingdev@gmail.com",
+    name: "Usuario SIGPJ",
+    email: "usuario@organojudicial.gob.bo",
     avatar: "/avatars/shadcn.jpg",
   },
   teams: [
     {
-      name: "Boring Automation",
-      logo: Command,
-      plan: "Professional",
-    },
-    {
-      name: "My Workspace",
-      logo: Command,
-      plan: "Free",
+      name: "Órgano Judicial",
+      logo: Scale,
+      plan: "Sistema Integrado",
     },
   ],
   navGroups: [
     {
-      title: "Main",
+      title: "Principal",
       items: [
         {
-          title: "Home",
+          title: "Inicio",
           url: "/dashboard",
           icon: Home,
         },
         {
-          title: "Voice Agents",
-          icon: Phone,
-          items: [
-            {
-              title: "Agents",
-              url: "/dashboard/voice-agents/agents",
-              icon: PhoneCall,
-            },
-            {
-              title: "Phone Numbers",
-              url: "/dashboard/voice-agents/phone-numbers",
-              icon: Phone,
-            },
-            {
-              title: "Test Numbers",
-              url: "/dashboard/voice-agents/test-numbers",
-              icon: TestTube2,
-            },
-          ],
+          title: "Mis Procesos",
+          url: "/ciudadano/procesos",
+          icon: Scale,
         },
         {
-          title: "Campaigns",
-          url: "/dashboard/campaigns",
-          icon: Megaphone,
+          title: "Documentos",
+          url: "/ciudadano/documentos",
+          icon: FileText,
         },
         {
-          title: "CRM",
-          url: "/dashboard/crm",
+          title: "Mi Abogado",
+          url: "/ciudadano/abogados",
           icon: Users,
         },
         {
-          title: "Text Agents",
-          url: "/dashboard/text-agents",
-          icon: MessageSquare,
+          title: "Calendario",
+          url: "/dashboard/calendario",
+          icon: Calendar,
         },
         {
-          title: "Flow Studio",
-          url: "/dashboard/flow-studio",
-          icon: Workflow,
-        },
-        {
-          title: "Data Studio",
-          url: "/dashboard/data-studio",
-          icon: Database,
+          title: "Expedientes",
+          url: "/dashboard/expedientes",
+          icon: Folder,
         },
       ],
     },

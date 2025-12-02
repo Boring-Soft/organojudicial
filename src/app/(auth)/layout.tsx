@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
+import { AuthProvider } from "@/providers/auth-provider";
 
 export default async function AuthLayout({
   children,
@@ -16,5 +17,5 @@ export default async function AuthLayout({
     redirect("/dashboard");
   }
 
-  return <>{children}</>;
+  return <AuthProvider>{children}</AuthProvider>;
 }

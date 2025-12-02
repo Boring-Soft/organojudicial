@@ -1,6 +1,6 @@
 "use client";
 
-import { Phone, TrendingUp, CreditCard, CheckCircle, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { Scale, FileText, Calendar, Clock, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
 interface StatCardProps {
@@ -47,36 +47,36 @@ function StatCard({ title, value, change, changeType, icon, description }: StatC
 export function StatsOverview() {
   const stats = [
     {
-      title: "Total Agents",
-      value: "24",
-      change: "+12%",
+      title: "Procesos Activos",
+      value: "8",
+      change: "+2",
       changeType: "positive" as const,
-      icon: <Phone className="h-5 w-5" />,
-      description: "8 active, 16 inactive",
+      icon: <Scale className="h-5 w-5" />,
+      description: "6 como actor, 2 como demandado",
     },
     {
-      title: "Active Calls Today",
-      value: "1,247",
-      change: "+23%",
-      changeType: "positive" as const,
-      icon: <TrendingUp className="h-5 w-5" />,
-      description: "↑ 180 from yesterday",
+      title: "Documentos Pendientes",
+      value: "3",
+      change: "Urgente",
+      changeType: "negative" as const,
+      icon: <FileText className="h-5 w-5" />,
+      description: "Requieren tu atención",
     },
     {
-      title: "Credits Used",
-      value: "6,420",
-      change: "64%",
+      title: "Próximas Audiencias",
+      value: "2",
+      change: "Esta semana",
       changeType: "neutral" as const,
-      icon: <CreditCard className="h-5 w-5" />,
-      description: "of 10,000 total credits",
+      icon: <Calendar className="h-5 w-5" />,
+      description: "Ver calendario completo",
     },
     {
-      title: "Success Rate",
-      value: "94.2%",
-      change: "+5.2%",
-      changeType: "positive" as const,
-      icon: <CheckCircle className="h-5 w-5" />,
-      description: "↑ Above average",
+      title: "Plazos Próximos",
+      value: "5",
+      change: "7 días",
+      changeType: "negative" as const,
+      icon: <Clock className="h-5 w-5" />,
+      description: "Próximo vencimiento",
     },
   ];
 

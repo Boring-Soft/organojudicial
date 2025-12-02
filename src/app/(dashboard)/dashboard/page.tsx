@@ -1,7 +1,5 @@
 import { StatsOverview } from "@/components/dashboard/stats-overview";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
-import { CreditsChart } from "@/components/dashboard/credits-chart";
-import { DaptaAcademy } from "@/components/dashboard/dapta-academy";
 
 export default async function DashboardPage() {
   // Authentication disabled for frontend design purposes
@@ -9,21 +7,15 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight mb-2">Dashboard</h1>
+        <h1 className="text-3xl font-bold tracking-tight mb-2">Panel de Control</h1>
         <p className="text-muted-foreground">
-          Welcome back! Here&apos;s an overview of your automation performance.
+          Bienvenido al Sistema Integral de Gestión Procesal Judicial (SIGPJ)
         </p>
       </div>
       <StatsOverview />
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <RecentActivity />
-        </div>
-        <div className="lg:col-span-1">
-          <CreditsChart />
-        </div>
+      <div className="w-full">
+        <RecentActivity />
       </div>
-      <DaptaAcademy />
     </div>
   );
 } 

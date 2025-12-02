@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Plus, Phone, MessageSquare, Megaphone, Clock } from "lucide-react";
+import { Search, Scale, FileText, Calendar, Clock } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -11,58 +10,58 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 interface Activity {
   id: string;
   name: string;
-  type: "voice" | "text" | "campaign";
+  type: "proceso" | "documento" | "audiencia";
   action: string;
   timestamp: string;
-  agent: string;
-  status: "success" | "failed" | "pending";
+  code: string;
+  status: "completado" | "pendiente" | "urgente";
 }
 
 const mockActivities: Activity[] = [
   {
     id: "1",
-    name: "Sales Qualifier",
-    type: "voice",
-    action: "Completed call with John Doe",
-    timestamp: "2 minutes ago",
-    agent: "SQ",
-    status: "success",
+    name: "Proceso Civil - Divorcio",
+    type: "proceso",
+    action: "Nueva resolución emitida por el juzgado",
+    timestamp: "Hace 2 horas",
+    code: "LP-2024-12345",
+    status: "completado",
   },
   {
     id: "2",
-    name: "Lead Follow-up",
-    type: "voice",
-    action: "Initiated outbound call",
-    timestamp: "15 minutes ago",
-    agent: "LF",
-    status: "pending",
+    name: "Documento Pendiente",
+    type: "documento",
+    action: "Respuesta a la demanda - Plazo: 5 días",
+    timestamp: "Hace 1 día",
+    code: "DOC-456",
+    status: "urgente",
   },
   {
     id: "3",
-    name: "Summer Campaign",
-    type: "campaign",
-    action: "Sent 50 messages",
-    timestamp: "1 hour ago",
-    agent: "SC",
-    status: "success",
+    name: "Audiencia Preliminar",
+    type: "audiencia",
+    action: "Programada para el 15 de diciembre",
+    timestamp: "Hace 2 días",
+    code: "AUD-789",
+    status: "pendiente",
   },
   {
     id: "4",
-    name: "Customer Support",
-    type: "text",
-    action: "Responded to inquiry",
-    timestamp: "2 hours ago",
-    agent: "CS",
-    status: "success",
+    name: "Proceso Laboral",
+    type: "proceso",
+    action: "Citación al demandado realizada",
+    timestamp: "Hace 3 días",
+    code: "LP-2024-54321",
+    status: "completado",
   },
   {
     id: "5",
-    name: "Appointment Reminder",
-    type: "voice",
-    action: "Failed to reach contact",
-    timestamp: "3 hours ago",
-    agent: "AR",
-    status: "failed",
+    name: "Pruebas Documentales",
+    type: "documento",
+    action: "Documentos recibidos y anexados al expediente",
+    timestamp: "Hace 5 días",
+    code: "DOC-789",
+    status: "completado",
   },
 ];
 
@@ -76,22 +75,22 @@ export function RecentActivity() {
 
   const getIcon = (type: Activity["type"]) => {
     switch (type) {
-      case "voice":
-        return <Phone className="h-4 w-4" />;
-      case "text":
-        return <MessageSquare className="h-4 w-4" />;
-      case "campaign":
-        return <Megaphone className="h-4 w-4" />;
+      case "proceso":
+        return <Scale className="h-4 w-4" />;
+      case "documento":
+        return <FileText className="h-4 w-4" />;
+      case "audiencia":
+        return <Calendar className="h-4 w-4" />;
     }
   };
 
   const getStatusColor = (status: Activity["status"]) => {
     switch (status) {
-      case "success":
+      case "completado":
         return "bg-green-500/10 text-green-500 border-green-500/20";
-      case "failed":
+      case "urgente":
         return "bg-red-500/10 text-red-500 border-red-500/20";
-      case "pending":
+      case "pendiente":
         return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
     }
   };
@@ -101,20 +100,16 @@ export function RecentActivity() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-semibold tracking-tight">Recent Activity</h2>
-            <p className="text-sm text-muted-foreground mt-1">Track your latest agent activities</p>
+            <h2 className="text-2xl font-semibold tracking-tight">Actividad Reciente</h2>
+            <p className="text-sm text-muted-foreground mt-1">Seguimiento de tus procesos y documentos</p>
           </div>
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-lg shadow-blue-500/20">
-            <Plus className="mr-2 h-4 w-4" />
-            Create Agent
-          </Button>
         </div>
 
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Search activities..."
+            placeholder="Buscar actividades..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -125,8 +120,8 @@ export function RecentActivity() {
           {filteredActivities.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <Clock className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p className="font-medium">No recent activity found</p>
-              <p className="text-sm">Activity will appear here once your agents start working</p>
+              <p className="font-medium">No se encontró actividad reciente</p>
+              <p className="text-sm">La actividad aparecerá aquí cuando haya movimientos en tus procesos</p>
             </div>
           ) : (
             filteredActivities.map((activity) => (
@@ -136,15 +131,13 @@ export function RecentActivity() {
               >
                 <Avatar className="h-10 w-10 border-2 border-blue-500/20">
                   <AvatarFallback className="bg-blue-500/10 text-blue-500 font-semibold">
-                    {activity.agent}
+                    {getIcon(activity.type)}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <p className="font-semibold text-sm truncate">{activity.name}</p>
-                    <div className="flex items-center gap-1 text-muted-foreground">
-                      {getIcon(activity.type)}
-                    </div>
+                    <span className="text-xs text-muted-foreground">({activity.code})</span>
                   </div>
                   <p className="text-sm text-muted-foreground truncate">{activity.action}</p>
                 </div>
