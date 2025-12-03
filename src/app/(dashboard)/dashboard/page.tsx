@@ -1,21 +1,46 @@
-import { StatsOverview } from "@/components/dashboard/stats-overview";
-import { RecentActivity } from "@/components/dashboard/recent-activity";
+import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
+import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
 
+/**
+ * Página genérica de dashboard - redirige al dashboard específico según rol
+ */
 export default async function DashboardPage() {
-  // Authentication disabled for frontend design purposes
+  const supabase = createServerComponentClient({ cookies });
 
-  return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight mb-2">Panel de Control</h1>
-        <p className="text-muted-foreground">
-          Bienvenido al Sistema Integral de Gestión Procesal Judicial (SIGPJ)
-        </p>
-      </div>
-      <StatsOverview />
-      <div className="w-full">
-        <RecentActivity />
-      </div>
-    </div>
-  );
+  try {
+    // Obtener usuario autenticado
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      redirect('/login');
+    }
+
+    // Obtener rol del usuario
+    const { data: usuario } = await supabase
+      .from('usuarios')
+      .select('rol')
+      .eq('userId', session.user.id)
+      .single();
+
+    if (!usuario) {
+      redirect('/login');
+    }
+
+    // Redirigir según rol
+    switch (usuario.rol) {
+      case 'CIUDADANO':
+        redirect('/ciudadano/dashboard');
+      case 'ABOGADO':
+        redirect('/abogado/dashboard');
+      case 'SECRETARIO':
+        redirect('/secretario/dashboard');
+      case 'JUEZ':
+        redirect('/juez/dashboard');
+      default:
+        redirect('/login');
+    }
+  } catch (error) {
+    redirect('/login');
+  }
 } 

@@ -1,12 +1,11 @@
-import { DashboardLayoutClient } from "@/components/dashboard/dashboard-layout-client";
-
+/**
+ * Layout general para el grupo (dashboard)
+ * NO incluye sidebar - cada rol tiene su propio layout con sidebar
+ */
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // Authentication disabled for frontend design purposes
-  // TODO: Re-enable when Supabase is configured
-
-  return <DashboardLayoutClient>{children}</DashboardLayoutClient>;
+  return <>{children}</>;
 }
