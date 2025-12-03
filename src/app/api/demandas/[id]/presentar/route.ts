@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getUser } from '@/lib/auth';
+import prisma from '@/lib/prisma';
+import { getCurrentUser } from '@/lib/auth';
 import { validarDemandaArt110, DatosDemanda } from '@/lib/demanda/validador-art110';
 import { realizarTransicion } from '@/lib/proceso/estado-machine';
+import { NotificacionService } from '@/lib/notificaciones/notificacion-service';
 
 /**
  * POST /api/demandas/[id]/presentar - Presenta una demanda oficialmente
@@ -12,7 +13,7 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await getUser();
+    const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
@@ -123,26 +124,31 @@ export async function POST(
       usuario.rol
     );
 
-    // Crear notificación para el secretario
-    const secretarios = await prisma.usuario.findMany({
-      where: {
-        rol: 'SECRETARIO',
-        juzgado: demanda.proceso.juzgado,
-      },
-    });
+    // Notificar a juez y secretario
+    try {
+      const juezId = demanda.proceso.juezId;
 
-    for (const secretario of secretarios) {
-      await prisma.notificacionInterna.create({
-        data: {
-          usuarioId: secretario.id,
-          procesoId: demanda.procesoId,
-          tipo: 'DEMANDA',
-          titulo: 'Nueva demanda presentada',
-          mensaje: `Se ha presentado una nueva demanda en el proceso ${demanda.proceso.nurej}`,
-          accionUrl: `/secretario/demandas/${demanda.id}`,
-          accionTexto: 'Revisar demanda',
+      // Obtener secretarios del juzgado
+      const secretarios = await prisma.usuario.findMany({
+        where: {
+          rol: 'SECRETARIO',
+          juzgado: demanda.proceso.juzgado,
         },
+        select: { id: true },
       });
+
+      const secretarioId = secretarios.length > 0 ? secretarios[0].id : undefined;
+
+      if (juezId) {
+        await NotificacionService.notificarDemandaNueva(
+          demanda.procesoId,
+          juezId,
+          secretarioId
+        );
+      }
+    } catch (error) {
+      console.error('Error al enviar notificaciones:', error);
+      // No fallar la operación si falla la notificación
     }
 
     return NextResponse.json({

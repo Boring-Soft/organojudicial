@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import prisma from '@/lib/prisma';
 import { generarNUREJ } from '@/lib/utils/nurej-generator';
-import { getUser } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth';
 
 /**
  * GET /api/procesos - Obtiene lista de procesos
@@ -9,7 +9,7 @@ import { getUser } from '@/lib/auth';
  */
 export async function GET(request: NextRequest) {
   try {
-    const user = await getUser();
+    const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const user = await getUser();
+    const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }

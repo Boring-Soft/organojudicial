@@ -14,6 +14,7 @@ type AuthContextType = {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  getUserRole: () => string | null;
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -24,6 +25,7 @@ const AuthContext = createContext<AuthContextType>({
   signIn: async () => {},
   signUp: async () => {},
   signOut: async () => {},
+  getUserRole: () => null,
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -184,9 +186,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push("/sign-in");
   };
 
+  const getUserRole = () => {
+    return profile?.rol ?? null;
+  };
+
   return (
     <AuthContext.Provider
-      value={{ user, session, profile, isLoading, signIn, signUp, signOut }}
+      value={{ user, session, profile, isLoading, signIn, signUp, signOut, getUserRole }}
     >
       {children}
     </AuthContext.Provider>

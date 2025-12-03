@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Upload, FileText, X } from 'lucide-react';
 import { DemandaFormData } from '../page';
-import { useToast } from '@/components/ui/toast';
+import { useToast } from '@/components/ui/use-toast';
 
 interface Props {
   datos: Partial<DemandaFormData>;

@@ -1,13 +1,13 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { Search, Mail, Phone, Calendar, FileText, MessageSquare, UserX } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { Search, Mail, Phone, Calendar, FileText, MessageSquare, UserX } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Table,
   TableBody,
@@ -15,7 +15,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
+} from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -23,43 +23,54 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { useAuth } from '@/providers/auth-provider'
-import { supabase } from '@/lib/supabase/client'
-import { format } from 'date-fns'
-import { es } from 'date-fns/locale'
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/providers/auth-provider';
+import { createClient } from '@/lib/supabase/client';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+
+interface Proceso {
+  id: string;
+  estado: string;
+  partes: Array<{
+    ciudadanoId: string;
+    tipo: string;
+  }>;
+}
 
 interface Cliente {
-  id: string
-  ciudadano_id: string
+  id: string;
+  ciudadano_id: string;
   ciudadano: {
-    nombres: string
-    apellidos: string
-    ci: string
-    email: string
-    telefono: string
-  }
-  fecha_vinculacion: string
-  casos_activos: number
-  casos_finalizados: number
-  ultima_interaccion: string
+    nombres: string;
+    apellidos: string;
+    ci: string;
+    email: string;
+    telefono: string;
+  };
+  fecha_vinculacion: string;
+  casos_activos: number;
+  casos_finalizados: number;
+  ultima_interaccion: string;
 }
 
 export default function MisClientesPage() {
-  const { user } = useAuth()
-  const [clientes, setClientes] = useState<Cliente[]>([])
-  const [filteredClientes, setFilteredClientes] = useState<Cliente[]>([])
-  const [searchTerm, setSearchTerm] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null)
-  const [desvincularDialogOpen, setDesvincularDialogOpen] = useState(false)
-  const [motivoDesvinculacion, setMotivoDesvinculacion] = useState('')
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [filteredClientes, setFilteredClientes] = useState<Cliente[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
+  const [desvincularDialogOpen, setDesvincularDialogOpen] = useState(false);
+  const [motivoDesvinculacion, setMotivoDesvinculacion] = useState('');
 
   useEffect(() => {
-    fetchClientes()
-  }, [user])
+    fetchClientes();
+  }, [user]);
 
   useEffect(() => {
     if (searchTerm) {
@@ -68,18 +79,21 @@ export default function MisClientesPage() {
           cliente.ciudadano.nombres.toLowerCase().includes(searchTerm.toLowerCase()) ||
           cliente.ciudadano.apellidos.toLowerCase().includes(searchTerm.toLowerCase()) ||
           cliente.ciudadano.ci.includes(searchTerm)
-      )
-      setFilteredClientes(filtered)
+      );
+      setFilteredClientes(filtered);
     } else {
-      setFilteredClientes(clientes)
+      setFilteredClientes(clientes);
     }
-  }, [searchTerm, clientes])
+  }, [searchTerm, clientes]);
 
   const fetchClientes = async () => {
-    if (!user) return
+    if (!user) return;
 
     try {
-      const { data, error } = await supabase
+      const supabase = createClient();
+
+      // Obtener vinculaciones activas
+      const { data: vinculaciones, error: vinculacionesError } = await supabase
         .from('vinculaciones_abogado_ciudadano')
         .select(
           `
@@ -97,36 +111,66 @@ export default function MisClientesPage() {
         )
         .eq('abogado_id', user.id)
         .eq('estado', 'ACTIVA')
-        .eq('activo', true)
+        .eq('activo', true);
 
-      if (error) throw error
+      if (vinculacionesError) throw vinculacionesError;
 
-      // Mock data for casos activos/finalizados y última interacción
-      const clientesConCasos = data.map((vinculacion) => ({
-        id: vinculacion.id,
-        ciudadano_id: vinculacion.ciudadano_id,
-        ciudadano: vinculacion.ciudadano,
-        fecha_vinculacion: vinculacion.fecha_vinculacion,
-        casos_activos: Math.floor(Math.random() * 3) + 1,
-        casos_finalizados: Math.floor(Math.random() * 5),
-        ultima_interaccion: new Date(
-          Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000
-        ).toISOString(),
-      }))
+      // Obtener procesos del abogado para calcular casos por cliente
+      const procesosResponse = await fetch('/api/procesos?limit=1000');
+      let procesos: Proceso[] = [];
 
-      setClientes(clientesConCasos)
-      setFilteredClientes(clientesConCasos)
+      if (procesosResponse.ok) {
+        const procesosData = await procesosResponse.json();
+        procesos = procesosData.procesos || [];
+      }
+
+      // Calcular casos activos y finalizados por cliente
+      const clientesConCasos = vinculaciones.map((vinculacion: any) => {
+        const ciudadanoId = vinculacion.ciudadano_id;
+
+        // Filtrar procesos donde este ciudadano es parte
+        const procesosCliente = procesos.filter((p) =>
+          p.partes?.some((parte: any) => parte.ciudadanoId === ciudadanoId)
+        );
+
+        const casosActivos = procesosCliente.filter(
+          (p) => p.estado !== 'FINALIZADO' && p.estado !== 'RECHAZADO'
+        ).length;
+
+        const casosFinalizados = procesosCliente.filter(
+          (p) => p.estado === 'FINALIZADO' || p.estado === 'SENTENCIA'
+        ).length;
+
+        return {
+          id: vinculacion.id,
+          ciudadano_id: vinculacion.ciudadano_id,
+          ciudadano: vinculacion.ciudadano,
+          fecha_vinculacion: vinculacion.fecha_vinculacion,
+          casos_activos: casosActivos,
+          casos_finalizados: casosFinalizados,
+          ultima_interaccion: vinculacion.fecha_vinculacion, // Usar fecha de vinculación como última interacción por ahora
+        };
+      });
+
+      setClientes(clientesConCasos);
+      setFilteredClientes(clientesConCasos);
     } catch (error) {
-      console.error('Error al cargar clientes:', error)
+      console.error('Error al cargar clientes:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudieron cargar los clientes',
+        variant: 'destructive',
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleDesvincular = async () => {
-    if (!selectedCliente || !motivoDesvinculacion.trim()) return
+    if (!selectedCliente || !motivoDesvinculacion.trim()) return;
 
     try {
+      const supabase = createClient();
       const { error } = await supabase
         .from('vinculaciones_abogado_ciudadano')
         .update({
@@ -134,37 +178,49 @@ export default function MisClientesPage() {
           fecha_fin: new Date().toISOString(),
           motivo_desvinculacion: motivoDesvinculacion,
         })
-        .eq('id', selectedCliente.id)
+        .eq('id', selectedCliente.id);
 
-      if (error) throw error
+      if (error) throw error;
+
+      toast({
+        title: 'Cliente desvinculado',
+        description: 'El cliente ha sido desvinculado exitosamente',
+      });
 
       // Actualizar la lista de clientes
-      setClientes(clientes.filter((c) => c.id !== selectedCliente.id))
-      setDesvincularDialogOpen(false)
-      setMotivoDesvinculacion('')
-      setSelectedCliente(null)
+      setClientes(clientes.filter((c) => c.id !== selectedCliente.id));
+      setDesvincularDialogOpen(false);
+      setMotivoDesvinculacion('');
+      setSelectedCliente(null);
     } catch (error) {
-      console.error('Error al desvincular cliente:', error)
+      console.error('Error al desvincular cliente:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo desvincular el cliente',
+        variant: 'destructive',
+      });
     }
-  }
+  };
 
   const getInitials = (nombres: string, apellidos: string) => {
-    return `${nombres.charAt(0)}${apellidos.charAt(0)}`.toUpperCase()
-  }
+    return `${nombres.charAt(0)}${apellidos.charAt(0)}`.toUpperCase();
+  };
 
   const getDiasDesdeInteraccion = (fecha: string) => {
-    const dias = Math.floor((Date.now() - new Date(fecha).getTime()) / (1000 * 60 * 60 * 24))
-    if (dias === 0) return 'Hoy'
-    if (dias === 1) return 'Ayer'
-    return `Hace ${dias} días`
-  }
+    const dias = Math.floor((Date.now() - new Date(fecha).getTime()) / (1000 * 60 * 60 * 24));
+    if (dias === 0) return 'Hoy';
+    if (dias === 1) return 'Ayer';
+    if (dias <= 7) return `Hace ${dias} días`;
+    if (dias <= 30) return `Hace ${Math.floor(dias / 7)} semanas`;
+    return `Hace ${Math.floor(dias / 30)} meses`;
+  };
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <p>Cargando clientes...</p>
+      <div className="flex items-center justify-center h-96">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
-    )
+    );
   }
 
   return (
@@ -245,6 +301,11 @@ export default function MisClientesPage() {
               <p className="text-muted-foreground">
                 {searchTerm ? 'No se encontraron clientes' : 'No tienes clientes activos'}
               </p>
+              {!searchTerm && (
+                <Button className="mt-4" asChild>
+                  <Link href="/abogado/solicitudes">Ver Solicitudes Pendientes</Link>
+                </Button>
+              )}
             </div>
           ) : (
             <Table>
@@ -283,16 +344,20 @@ export default function MisClientesPage() {
                           <Mail className="h-3 w-3" />
                           <span className="text-muted-foreground">{cliente.ciudadano.email}</span>
                         </div>
-                        <div className="flex items-center gap-1 text-sm">
-                          <Phone className="h-3 w-3" />
-                          <span className="text-muted-foreground">{cliente.ciudadano.telefono}</span>
-                        </div>
+                        {cliente.ciudadano.telefono && (
+                          <div className="flex items-center gap-1 text-sm">
+                            <Phone className="h-3 w-3" />
+                            <span className="text-muted-foreground">{cliente.ciudadano.telefono}</span>
+                          </div>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <Badge variant="default">{cliente.casos_activos} Activos</Badge>
+                          <Badge variant={cliente.casos_activos > 0 ? 'default' : 'secondary'}>
+                            {cliente.casos_activos} Activos
+                          </Badge>
                         </div>
                         <p className="text-xs text-muted-foreground">
                           {cliente.casos_finalizados} finalizados
@@ -327,8 +392,8 @@ export default function MisClientesPage() {
                           variant="outline"
                           title="Desvincular"
                           onClick={() => {
-                            setSelectedCliente(cliente)
-                            setDesvincularDialogOpen(true)
+                            setSelectedCliente(cliente);
+                            setDesvincularDialogOpen(true);
                           }}
                         >
                           <UserX className="h-4 w-4" />
@@ -371,9 +436,9 @@ export default function MisClientesPage() {
             <Button
               variant="outline"
               onClick={() => {
-                setDesvincularDialogOpen(false)
-                setMotivoDesvinculacion('')
-                setSelectedCliente(null)
+                setDesvincularDialogOpen(false);
+                setMotivoDesvinculacion('');
+                setSelectedCliente(null);
               }}
             >
               Cancelar
@@ -389,5 +454,5 @@ export default function MisClientesPage() {
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }

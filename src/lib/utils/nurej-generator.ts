@@ -7,7 +7,7 @@
  * - CC: Dígito verificador
  */
 
-import { prisma } from '@/lib/prisma';
+import prisma from '@/lib/prisma';
 
 /**
  * Genera un código de juzgado de 5 dígitos

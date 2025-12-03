@@ -11,7 +11,7 @@ import { Paso2Detalles } from './components/paso-2-detalles';
 import { Paso3Fundamentos } from './components/paso-3-fundamentos';
 import { Paso4Anexos } from './components/paso-4-anexos';
 import { Paso5Revision } from './components/paso-5-revision';
-import { useToast } from '@/components/ui/toast';
+import { useToast } from '@/components/ui/use-toast';
 
 export interface DemandaFormData {
   // Paso 1: Partes

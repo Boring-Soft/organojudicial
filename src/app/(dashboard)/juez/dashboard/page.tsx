@@ -1,6 +1,8 @@
-'use client'
+'use client';
 
-import Link from 'next/link'
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   AlertCircle,
   Calendar,
@@ -10,61 +12,225 @@ import {
   TrendingUp,
   Clock,
   CheckCircle2,
-} from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
+  Video,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { useToast } from '@/components/ui/use-toast';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+
+interface Proceso {
+  id: string;
+  nurej: string;
+  estado: string;
+  partes: Array<{
+    tipo: string;
+    nombres: string;
+    apellidos: string;
+  }>;
+  plazos: Array<{
+    id: string;
+    tipo: string;
+    descripcion: string;
+    fechaVencimiento: string;
+  }>;
+}
+
+interface Sentencia {
+  id: string;
+  procesoId: string;
+  fechaEmision: string;
+}
+
+interface Resolucion {
+  id: string;
+  tipo: string;
+  fechaEmision: string;
+}
+
+interface Audiencia {
+  id: string;
+  tipo: string;
+  fecha: string;
+  estado: string;
+  proceso: {
+    nurej: string;
+    partes: Array<{
+      tipo: string;
+      nombres: string;
+      apellidos: string;
+    }>;
+  };
+}
 
 export default function JuezDashboardPage() {
-  const plazosCriticos = [
-    {
-      id: '1',
-      proceso: 'LP-001-2024-CV',
-      tipo: 'Sentencia',
-      diasRestantes: 5,
-      actor: 'Juan Pérez',
-      demandado: 'María López',
-    },
-    {
-      id: '2',
-      proceso: 'LP-023-2024-FM',
-      tipo: 'Resolución',
-      diasRestantes: 10,
-      actor: 'Pedro García',
-      demandado: 'Ana Martínez',
-    },
-  ]
+  const router = useRouter();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
 
+  // Estados para datos reales
+  const [procesos, setProcesos] = useState<Proceso[]>([]);
+  const [sentencias, setSentencias] = useState<Sentencia[]>([]);
+  const [resoluciones, setResoluciones] = useState<Resolucion[]>([]);
+  const [audiencias, setAudiencias] = useState<Audiencia[]>([]);
+
+  useEffect(() => {
+    cargarDatos();
+  }, []);
+
+  const cargarDatos = async () => {
+    try {
+      // Cargar todos los datos en paralelo
+      const [procesosRes, sentenciasRes, resolucionesRes, audienciasRes] = await Promise.all([
+        fetch('/api/procesos?limit=100'),
+        fetch('/api/sentencias'),
+        fetch('/api/resoluciones'),
+        fetch('/api/audiencias'),
+      ]);
+
+      if (procesosRes.ok) {
+        const data = await procesosRes.json();
+        setProcesos(data.procesos || []);
+      }
+
+      if (sentenciasRes.ok) {
+        const data = await sentenciasRes.json();
+        setSentencias(data || []);
+      }
+
+      if (resolucionesRes.ok) {
+        const data = await resolucionesRes.json();
+        setResoluciones(data || []);
+      }
+
+      if (audienciasRes.ok) {
+        const data = await audienciasRes.json();
+        setAudiencias(data || []);
+      }
+    } catch (error) {
+      console.error('Error al cargar datos:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudieron cargar algunos datos del dashboard',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Cálculo de métricas reales
+  const procesosActivos = procesos.filter(
+    (p) => p.estado !== 'FINALIZADO' && p.estado !== 'SENTENCIA'
+  ).length;
+
+  const audienciasHoy = audiencias.filter((a) => {
+    const hoy = new Date();
+    const fechaAudiencia = new Date(a.fecha);
+    return (
+      fechaAudiencia.getDate() === hoy.getDate() &&
+      fechaAudiencia.getMonth() === hoy.getMonth() &&
+      fechaAudiencia.getFullYear() === hoy.getFullYear()
+    );
+  });
+
+  const audienciasRealizadas = audiencias.filter((a) => a.estado === 'FINALIZADA').length;
+
+  // Plazos críticos (vencen en 10 días o menos)
+  const plazosCriticos = procesos
+    .filter((p) => p.plazos && p.plazos.length > 0)
+    .map((p) => {
+      const plazo = p.plazos[0];
+      const diasRestantes = calcularDiasRestantes(plazo.fechaVencimiento);
+      return { proceso: p, plazo, diasRestantes };
+    })
+    .filter((item) => item.diasRestantes !== null && item.diasRestantes >= 0 && item.diasRestantes <= 10)
+    .sort((a, b) => (a.diasRestantes || 0) - (b.diasRestantes || 0))
+    .slice(0, 5);
+
+  // Procesos por etapa
   const procesosPorEtapa = [
-    { etapa: 'Admitido', cantidad: 5, color: 'bg-blue-500' },
-    { etapa: 'Audiencia Preliminar', cantidad: 8, color: 'bg-yellow-500' },
-    { etapa: 'Prueba', cantidad: 3, color: 'bg-purple-500' },
-    { etapa: 'Sentencia Pendiente', cantidad: 2, color: 'bg-red-500' },
-    { etapa: 'Sentenciado', cantidad: 12, color: 'bg-green-500' },
-  ]
-
-  const audienciasHoy = [
     {
-      id: '1',
-      proceso: 'LP-045-2024-CV',
-      tipo: 'Preliminar',
-      hora: '09:00',
-      partes: 'Carlos Morales vs. Luis Ramírez',
+      etapa: 'Admitido',
+      estado: 'ADMITIDO',
+      cantidad: procesos.filter((p) => p.estado === 'ADMITIDO').length,
+      color: 'bg-blue-500',
     },
     {
-      id: '2',
-      proceso: 'LP-067-2024-LB',
-      tipo: 'Complementaria',
-      hora: '14:30',
-      partes: 'Empresa ABC vs. Sindicato XYZ',
+      etapa: 'Contestación Pendiente',
+      estado: 'CONTESTACION_PENDIENTE',
+      cantidad: procesos.filter((p) => p.estado === 'CONTESTACION_PENDIENTE').length,
+      color: 'bg-yellow-500',
     },
-  ]
+    {
+      etapa: 'Audiencia Preliminar',
+      estado: 'AUDIENCIA_PRELIMINAR',
+      cantidad: procesos.filter((p) => p.estado === 'AUDIENCIA_PRELIMINAR').length,
+      color: 'bg-purple-500',
+    },
+    {
+      etapa: 'Prueba',
+      estado: 'PRUEBA',
+      cantidad: procesos.filter((p) => p.estado === 'PRUEBA').length,
+      color: 'bg-orange-500',
+    },
+    {
+      etapa: 'Sentencia',
+      estado: 'SENTENCIA',
+      cantidad: procesos.filter((p) => p.estado === 'SENTENCIA').length,
+      color: 'bg-red-500',
+    },
+    {
+      etapa: 'Finalizados',
+      estado: 'FINALIZADO',
+      cantidad: procesos.filter((p) => p.estado === 'FINALIZADO').length,
+      color: 'bg-green-500',
+    },
+  ];
 
-  const getDiasColor = (dias: number) => {
-    if (dias <= 5) return 'text-red-600'
-    if (dias <= 10) return 'text-yellow-600'
-    return 'text-green-600'
+  // Cálculo de cumplimiento de plazos
+  const calcularCumplimientoPlazos = () => {
+    if (procesos.length === 0) return 0;
+
+    const procesosConPlazos = procesos.filter((p) => p.plazos && p.plazos.length > 0);
+    if (procesosConPlazos.length === 0) return 100;
+
+    const plazosVencidos = procesosConPlazos.filter((p) => {
+      const diasRestantes = calcularDiasRestantes(p.plazos[0].fechaVencimiento);
+      return diasRestantes !== null && diasRestantes < 0;
+    }).length;
+
+    const porcentaje = ((procesosConPlazos.length - plazosVencidos) / procesosConPlazos.length) * 100;
+    return Math.round(porcentaje);
+  };
+
+  const cumplimientoPlazos = calcularCumplimientoPlazos();
+
+  function calcularDiasRestantes(fechaVencimiento: string): number | null {
+    if (!fechaVencimiento) return null;
+    const hoy = new Date();
+    const vencimiento = new Date(fechaVencimiento);
+    const diffTime = vencimiento.getTime() - hoy.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  }
+
+  const getDiasColor = (dias: number | null) => {
+    if (dias === null) return 'text-gray-600';
+    if (dias <= 3) return 'text-red-600';
+    if (dias <= 7) return 'text-yellow-600';
+    return 'text-green-600';
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
   }
 
   return (
@@ -81,7 +247,7 @@ export default function JuezDashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Procesos Activos</p>
-                <p className="text-2xl font-bold">30</p>
+                <p className="text-2xl font-bold">{procesosActivos}</p>
               </div>
               <FileText className="h-8 w-8 text-blue-500" />
             </div>
@@ -93,7 +259,7 @@ export default function JuezDashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Sentencias Emitidas</p>
-                <p className="text-2xl font-bold">12</p>
+                <p className="text-2xl font-bold">{sentencias.length}</p>
               </div>
               <FileSignature className="h-8 w-8 text-green-500" />
             </div>
@@ -105,7 +271,7 @@ export default function JuezDashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Cumplimiento Plazos</p>
-                <p className="text-2xl font-bold">95%</p>
+                <p className="text-2xl font-bold">{cumplimientoPlazos}%</p>
               </div>
               <TrendingUp className="h-8 w-8 text-purple-500" />
             </div>
@@ -139,38 +305,85 @@ export default function JuezDashboardPage() {
               <CardDescription>Sentencias y resoluciones próximas a vencer</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {plazosCriticos.map((plazo) => (
-                <Card key={plazo.id} className="border-l-4 border-l-red-500">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold">{plazo.proceso}</p>
-                          <Badge variant="destructive">{plazo.tipo}</Badge>
+              {plazosCriticos.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <CheckCircle2 className="h-12 w-12 mx-auto mb-2 text-green-500" />
+                  <p>No hay plazos críticos en este momento</p>
+                </div>
+              ) : (
+                plazosCriticos.map((item) => {
+                  const actor = item.proceso.partes.find((p) => p.tipo === 'ACTOR');
+                  const demandado = item.proceso.partes.find((p) => p.tipo === 'DEMANDADO');
+
+                  return (
+                    <Card
+                      key={item.proceso.id}
+                      className={`border-l-4 ${
+                        item.diasRestantes !== null && item.diasRestantes <= 3
+                          ? 'border-l-red-500'
+                          : 'border-l-yellow-500'
+                      }`}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold">{item.proceso.nurej}</p>
+                              <Badge variant={item.plazo.tipo === 'SENTENCIA' ? 'destructive' : 'default'}>
+                                {item.plazo.tipo}
+                              </Badge>
+                            </div>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              {actor ? `${actor.nombres} ${actor.apellidos}` : 'Actor no asignado'} vs.{' '}
+                              {demandado ? `${demandado.nombres} ${demandado.apellidos}` : 'Demandado no asignado'}
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">{item.plazo.descripcion}</p>
+                            <div className="mt-2 flex items-center gap-2">
+                              <Clock className="h-4 w-4" />
+                              <span className={`text-sm font-bold ${getDiasColor(item.diasRestantes)}`}>
+                                {item.diasRestantes === 0
+                                  ? 'Vence hoy'
+                                  : item.diasRestantes === 1
+                                  ? '1 día restante'
+                                  : `${item.diasRestantes} días restantes`}
+                              </span>
+                            </div>
+                          </div>
+                          <AlertCircle
+                            className={`h-5 w-5 ${
+                              item.diasRestantes !== null && item.diasRestantes <= 3
+                                ? 'text-red-500'
+                                : 'text-yellow-500'
+                            }`}
+                          />
                         </div>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          {plazo.actor} vs. {plazo.demandado}
-                        </p>
-                        <div className="mt-2 flex items-center gap-2">
-                          <Clock className="h-4 w-4" />
-                          <span className={`text-sm font-bold ${getDiasColor(plazo.diasRestantes)}`}>
-                            {plazo.diasRestantes} días restantes
-                          </span>
+                        <div className="mt-3 flex gap-2">
+                          <Button
+                            size="sm"
+                            className="flex-1"
+                            onClick={() =>
+                              router.push(
+                                item.plazo.tipo === 'SENTENCIA'
+                                  ? `/juez/sentencias`
+                                  : `/juez/resoluciones`
+                              )
+                            }
+                          >
+                            {item.plazo.tipo === 'SENTENCIA' ? 'Emitir Sentencia' : 'Emitir Resolución'}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => router.push(`/proceso/${item.proceso.id}`)}
+                          >
+                            Ver Expediente
+                          </Button>
                         </div>
-                      </div>
-                      <AlertCircle className="h-5 w-5 text-red-500" />
-                    </div>
-                    <div className="mt-3 flex gap-2">
-                      <Button size="sm" className="flex-1">
-                        {plazo.tipo === 'Sentencia' ? 'Emitir Sentencia' : 'Emitir Resolución'}
-                      </Button>
-                      <Button size="sm" variant="outline">
-                        Ver Expediente
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              )}
             </CardContent>
           </Card>
 
@@ -192,7 +405,7 @@ export default function JuezDashboardPage() {
                       <Badge variant="secondary">{item.cantidad}</Badge>
                     </div>
                     <Progress
-                      value={(item.cantidad / 30) * 100}
+                      value={procesos.length > 0 ? (item.cantidad / procesos.length) * 100 : 0}
                       className="h-2"
                     />
                   </div>
@@ -214,27 +427,46 @@ export default function JuezDashboardPage() {
               <CardDescription>Programación de hoy</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {audienciasHoy.map((audiencia) => (
-                <Card key={audiencia.id}>
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <Calendar className="mt-1 h-5 w-5 text-primary" />
-                      <div className="flex-1">
-                        <p className="font-semibold text-sm">{audiencia.proceso}</p>
-                        <p className="text-xs text-muted-foreground">{audiencia.tipo}</p>
-                        <p className="mt-1 text-xs">
-                          <Clock className="mr-1 inline h-3 w-3" />
-                          {audiencia.hora}
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">{audiencia.partes}</p>
-                      </div>
-                      <Button size="sm" variant="outline">
-                        Acceder
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+              {audienciasHoy.length === 0 ? (
+                <div className="text-center py-6 text-muted-foreground text-sm">
+                  <Calendar className="h-8 w-8 mx-auto mb-2" />
+                  <p>No hay audiencias programadas para hoy</p>
+                </div>
+              ) : (
+                audienciasHoy.map((audiencia) => {
+                  const actor = audiencia.proceso.partes.find((p) => p.tipo === 'ACTOR');
+                  const demandado = audiencia.proceso.partes.find((p) => p.tipo === 'DEMANDADO');
+
+                  return (
+                    <Card key={audiencia.id}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3">
+                          <Video className="mt-1 h-5 w-5 text-primary" />
+                          <div className="flex-1">
+                            <p className="font-semibold text-sm">{audiencia.proceso.nurej}</p>
+                            <p className="text-xs text-muted-foreground">{audiencia.tipo}</p>
+                            <p className="mt-1 text-xs">
+                              <Clock className="mr-1 inline h-3 w-3" />
+                              {format(new Date(audiencia.fecha), 'HH:mm')}
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {actor ? `${actor.nombres} ${actor.apellidos}` : 'Actor'} vs.{' '}
+                              {demandado ? `${demandado.nombres} ${demandado.apellidos}` : 'Demandado'}
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => router.push(`/audiencia/${audiencia.id}`)}
+                          >
+                            Acceder
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              )}
               <Button className="w-full" variant="outline" asChild>
                 <Link href="/juez/audiencias">Ver Calendario Completo</Link>
               </Button>
@@ -251,27 +483,29 @@ export default function JuezDashboardPage() {
               <div>
                 <div className="mb-1 flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Cumplimiento de plazos</span>
-                  <span className="font-semibold">95%</span>
+                  <span className="font-semibold">{cumplimientoPlazos}%</span>
                 </div>
-                <Progress value={95} className="h-2" />
+                <Progress value={cumplimientoPlazos} className="h-2" />
               </div>
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Sentencias emitidas</span>
-                  <span className="font-semibold">12</span>
+                  <span className="font-semibold">{sentencias.length}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Resoluciones emitidas</span>
-                  <span className="font-semibold">25</span>
+                  <span className="font-semibold">{resoluciones.length}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Audiencias realizadas</span>
-                  <span className="font-semibold">18</span>
+                  <span className="font-semibold">{audienciasRealizadas}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Procesos resueltos</span>
-                  <span className="font-semibold">8</span>
+                  <span className="font-semibold">
+                    {procesos.filter((p) => p.estado === 'FINALIZADO').length}
+                  </span>
                 </div>
               </div>
 
@@ -288,21 +522,21 @@ export default function JuezDashboardPage() {
             </CardHeader>
             <CardContent className="space-y-2">
               <Button className="w-full justify-start" variant="outline" asChild>
-                <Link href="/juez/sentencias/nueva">
+                <Link href="/juez/sentencias">
                   <FileSignature className="mr-2 h-4 w-4" />
                   Nueva Sentencia
                 </Link>
               </Button>
               <Button className="w-full justify-start" variant="outline" asChild>
-                <Link href="/juez/resoluciones/nueva">
+                <Link href="/juez/resoluciones">
                   <Gavel className="mr-2 h-4 w-4" />
                   Nueva Resolución
                 </Link>
               </Button>
               <Button className="w-full justify-start" variant="outline" asChild>
-                <Link href="/usuarios">
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Gestionar Usuarios
+                <Link href="/juez/procesos">
+                  <FileText className="mr-2 h-4 w-4" />
+                  Ver Procesos
                 </Link>
               </Button>
             </CardContent>
@@ -310,5 +544,5 @@ export default function JuezDashboardPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }

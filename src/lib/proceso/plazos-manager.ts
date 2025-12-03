@@ -3,7 +3,7 @@
  * Crea, monitorea y envía alertas sobre plazos
  */
 
-import { prisma } from '@/lib/prisma';
+import prisma from '@/lib/prisma';
 import { sumarDiasHabiles, diasHabilesRestantes, determinarUrgencia } from '@/lib/utils/dias-habiles';
 
 /**

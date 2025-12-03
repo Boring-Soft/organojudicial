@@ -4,7 +4,7 @@
  */
 
 import { EstadoProceso, RolUsuario } from '@prisma/client';
-import { prisma } from '@/lib/prisma';
+import prisma from '@/lib/prisma';
 
 /**
  * Define las transiciones válidas entre estados
