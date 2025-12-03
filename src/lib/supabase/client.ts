@@ -1,5 +1,4 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-import { applyPasswordHashMiddleware } from "./password-hash-middleware";
 
 /**
  * Crea un cliente de Supabase para el navegador
@@ -21,8 +20,7 @@ export function createClient() {
     },
   });
 
-  // Apply password hash middleware to handle client-side hashed passwords
-  return applyPasswordHashMiddleware(baseClient);
+  return baseClient;
 }
 
 // Export default instance for backwards compatibility

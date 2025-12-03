@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { useAuth } from '@/contexts/auth-context'
 import { abogadoRegistroSchema, type AbogadoRegistroInput } from '@/lib/validations/abogado'
 import { createClient } from '@/lib/supabase/client'
 
@@ -19,7 +18,6 @@ import { createClient } from '@/lib/supabase/client'
  */
 export default function RegistroAbogadoPage() {
   const router = useRouter()
-  const { signUp } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -37,7 +35,7 @@ export default function RegistroAbogadoPage() {
     const file = e.target.files?.[0]
     if (file) {
       setSelectedFile(file)
-      setValue('certificado', e.target.files)
+      setValue('certificado', e.target.files, { shouldValidate: true })
     }
   }
 
@@ -47,31 +45,21 @@ export default function RegistroAbogadoPage() {
 
     try {
       // 1. Crear usuario en Supabase Auth
-      const { data: authData, error: authError } = await signUp(data.email, data.password, {
-        nombres: data.nombres,
-        apellidos: data.apellidos,
-        numeroRegistro: data.numeroRegistro,
+      const supabase = createClient()
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
       })
 
-      if (authError || !authData) {
-        setError((authError as { message?: string })?.message || 'Error al crear la cuenta')
+      if (authError || !authData?.user) {
+        setError(authError?.message || 'Error al crear la cuenta')
         setIsLoading(false)
         return
       }
-
-      const typedAuthData = authData as { user: { id: string } | null }
-
-      if (!typedAuthData.user) {
-        setError('Error al crear el usuario')
-        setIsLoading(false)
-        return
-      }
-
-      const supabase = createClient()
 
       // 2. Subir certificado de vigencia a Supabase Storage
       if (selectedFile) {
-        const fileName = `${typedAuthData.user.id}_${Date.now()}.pdf`
+        const fileName = `${authData.user.id}_${Date.now()}.pdf`
         const { error: uploadError } = await supabase.storage
           .from('certificados')
           .upload(`abogados/${fileName}`, selectedFile)
@@ -84,22 +72,21 @@ export default function RegistroAbogadoPage() {
         }
       }
 
-      // 3. Crear registro en tabla usuarios con rol ABOGADO (estado PENDIENTE)
+      // 3. Crear registro en tabla usuarios con rol ABOGADO
       const { error: dbError } = await supabase.from('usuarios').insert({
-        id: typedAuthData.user.id,
+        userId: authData.user.id,
         email: data.email,
         nombres: data.nombres,
         apellidos: data.apellidos,
         ci: data.ci,
         telefono: data.telefono,
-        numeroRegistro: data.numeroRegistro,
+        registro_abogado: data.numeroRegistro,
         rol: 'ABOGADO',
-        verificado: false, // Requiere verificación manual
       })
 
       if (dbError) {
         console.error('Error al crear usuario en BD:', dbError)
-        setError('Error al completar el registro. Por favor contacta a soporte.')
+        setError(dbError.message || 'Error al completar el registro. Por favor contacta a soporte.')
         setIsLoading(false)
         return
       }
@@ -248,7 +235,6 @@ export default function RegistroAbogadoPage() {
                   id="certificado"
                   type="file"
                   accept="application/pdf"
-                  {...register('certificado')}
                   onChange={handleFileChange}
                   disabled={isLoading}
                   className="hidden"

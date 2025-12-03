@@ -27,7 +27,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Badge } from '@/components/ui/badge'
-import { useAuth } from '@/contexts/auth-context'
+import { useAuth } from '@/providers/auth-provider'
 import { cn } from '@/lib/utils'
 
 const navigation = [

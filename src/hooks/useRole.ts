@@ -1,6 +1,6 @@
 'use client'
 
-import { useAuth } from '@/contexts/auth-context'
+import { useAuth } from '@/providers/auth-provider'
 import { RolUsuario } from '@prisma/client'
 
 /**

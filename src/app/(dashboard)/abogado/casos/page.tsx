@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useAuth } from '@/contexts/auth-context'
+import { useAuth } from '@/providers/auth-provider'
 import { supabase } from '@/lib/supabase/client'
 
 interface Caso {

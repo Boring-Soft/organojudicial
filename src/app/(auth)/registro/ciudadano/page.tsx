@@ -11,7 +11,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { useAuth } from '@/contexts/auth-context'
 import { ciudadanoRegistroSchema, type CiudadanoRegistroInput } from '@/lib/validations/ciudadano'
 import { createClient } from '@/lib/supabase/client'
 
@@ -20,7 +19,6 @@ import { createClient } from '@/lib/supabase/client'
  */
 export default function RegistroCiudadanoPage() {
   const router = useRouter()
-  const { signUp } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -37,30 +35,22 @@ export default function RegistroCiudadanoPage() {
     setError(null)
 
     try {
-      // 1. Crear usuario en Supabase Auth
-      const { data: authData, error: authError } = await signUp(data.email, data.password, {
-        nombres: data.nombres,
-        apellidos: data.apellidos,
+      // 1. Crear usuario en Supabase Auth directamente
+      const supabase = createClient()
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
       })
 
-      if (authError || !authData) {
-        setError((authError as { message?: string })?.message || 'Error al crear la cuenta')
-        setIsLoading(false)
-        return
-      }
-
-      const typedAuthData = authData as { user: { id: string } | null }
-
-      if (!typedAuthData.user) {
-        setError('Error al crear el usuario')
+      if (authError || !authData?.user) {
+        setError(authError?.message || 'Error al crear la cuenta')
         setIsLoading(false)
         return
       }
 
       // 2. Crear registro en tabla usuarios con rol CIUDADANO
-      const supabase = createClient()
       const { error: dbError } = await supabase.from('usuarios').insert({
-        id: typedAuthData.user.id,
+        userId: authData.user.id,
         email: data.email,
         nombres: data.nombres,
         apellidos: data.apellidos,
@@ -72,7 +62,7 @@ export default function RegistroCiudadanoPage() {
 
       if (dbError) {
         console.error('Error al crear usuario en BD:', dbError)
-        setError('Error al completar el registro. Por favor contacta a soporte.')
+        setError(dbError.message || 'Error al completar el registro. Por favor contacta a soporte.')
         setIsLoading(false)
         return
       }

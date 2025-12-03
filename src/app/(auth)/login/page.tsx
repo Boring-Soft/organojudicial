@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { useAuth } from '@/contexts/auth-context'
+import { useAuth } from '@/providers/auth-provider'
 import { loginSchema, type LoginInput } from '@/lib/validations/auth'
 import { createClient } from '@/lib/supabase/client'
 import { RolUsuario } from '@prisma/client'
@@ -22,7 +22,6 @@ import { RolUsuario } from '@prisma/client'
 export default function LoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { signIn } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -73,7 +72,7 @@ export default function LoginPage() {
       const { data, error } = await supabase
         .from('usuarios')
         .select('rol')
-        .eq('id', userId)
+        .eq('userId', userId)
         .single()
 
       if (error || !data) {
@@ -128,11 +127,15 @@ export default function LoginPage() {
         email = emailFromCI
       }
 
-      // Intentar iniciar sesión
-      const { data: authData, error: authError } = await signIn(email, data.password)
+      // Intentar iniciar sesión usando Supabase directamente
+      const supabase = createClient()
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password: data.password,
+      })
 
       if (authError) {
-        const errorMessage = (authError as { message?: string })?.message
+        const errorMessage = authError.message
         if (errorMessage?.includes('Invalid login credentials')) {
           setError('Email o contraseña incorrectos')
         } else if (errorMessage?.includes('Email not confirmed')) {
@@ -144,19 +147,17 @@ export default function LoginPage() {
         return
       }
 
-      const typedAuthData = authData as { user: { id: string } | null }
-
-      if (!typedAuthData.user) {
+      if (!authData.user) {
         setError('Error al iniciar sesión')
         setIsLoading(false)
         return
       }
 
       // Obtener el rol del usuario
-      const rol = await getUserRole(typedAuthData.user.id)
+      const rol = await getUserRole(authData.user.id)
 
       if (!rol) {
-        setError('Error al obtener información del usuario')
+        setError('No se encontró información del usuario en el sistema. Por favor contacta al administrador.')
         setIsLoading(false)
         return
       }

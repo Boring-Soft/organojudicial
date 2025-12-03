@@ -4,12 +4,12 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import type { User, Session } from "@supabase/auth-helpers-nextjs";
 import { useRouter } from "next/navigation";
-import type { Profile } from "@/types/profile";
+import type { Usuario } from "@/types/profile";
 
 type AuthContextType = {
   user: User | null;
   session: Session | null;
-  profile: Profile | null;
+  profile: Usuario | null;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
@@ -29,7 +29,7 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profile, setProfile] = useState<Usuario | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
@@ -56,11 +56,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Fetch profile function
   const fetchProfile = async (userId: string) => {
+    if (!supabase) return;
+
     try {
-      const response = await fetch(`/api/profile/${userId}`);
-      if (!response.ok) throw new Error("Failed to fetch profile");
-      const data = await response.json();
-      setProfile(data.profile);
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('*')
+        .eq('userId', userId)
+        .single();
+
+      if (error) {
+        console.error("Error fetching profile:", error);
+        setProfile(null);
+        return;
+      }
+
+      setProfile(data);
     } catch (error) {
       console.error("Error fetching profile:", error);
       setProfile(null);
@@ -117,10 +128,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       password,
     });
     if (error) throw error;
+
     if (data.user) {
-      await fetchProfile(data.user.id);
+      // Fetch user profile to get role
+      const { data: usuario } = await supabase
+        .from('usuarios')
+        .select('*')
+        .eq('userId', data.user.id)
+        .single();
+
+      if (usuario) {
+        setProfile(usuario);
+
+        // Redirect based on role
+        switch (usuario.rol) {
+          case 'CIUDADANO':
+            router.push('/ciudadano/dashboard');
+            break;
+          case 'ABOGADO':
+            router.push('/abogado/dashboard');
+            break;
+          case 'SECRETARIO':
+            router.push('/secretario/dashboard');
+            break;
+          case 'JUEZ':
+            router.push('/juez/dashboard');
+            break;
+          default:
+            router.push('/dashboard');
+        }
+      } else {
+        router.push('/dashboard');
+      }
     }
-    router.push("/dashboard");
   };
 
   const signUp = async (email: string, password: string) => {

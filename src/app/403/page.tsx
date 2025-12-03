@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { ShieldAlert, ArrowLeft, Home } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useAuth } from '@/contexts/auth-context'
+import { useAuth } from '@/providers/auth-provider'
 import { useEffect, useState } from 'react'
 import { RolUsuario } from '@prisma/client'
 

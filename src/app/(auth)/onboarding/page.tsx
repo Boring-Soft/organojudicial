@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { CheckCircle2, ArrowRight, FileText, Users, Bell, MessageSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useAuth } from '@/contexts/auth-context'
+import { useAuth } from '@/providers/auth-provider'
 
 /**
  * Página de onboarding post-registro
