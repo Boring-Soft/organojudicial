@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -50,7 +50,7 @@ interface Caso {
   progreso: number
 }
 
-export default function MisCasosPage() {
+function MisCasosContent() {
   const { user } = useAuth()
   const searchParams = useSearchParams()
   const clienteId = searchParams.get('cliente')
@@ -601,5 +601,17 @@ export default function MisCasosPage() {
         </TabsContent>
       </Tabs>
     </div>
+  )
+}
+
+export default function MisCasosPage() {
+  return (
+    <Suspense fallback={
+      <div className="container mx-auto px-4 py-8">
+        <p>Cargando casos...</p>
+      </div>
+    }>
+      <MisCasosContent />
+    </Suspense>
   )
 }

@@ -6,14 +6,14 @@ import { ShieldAlert, ArrowLeft, Home } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuth } from '@/providers/auth-provider'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { RolUsuario } from '@prisma/client'
 
 /**
  * Página 403 - Acceso Denegado
  * Se muestra cuando un usuario intenta acceder a una ruta sin los permisos necesarios
  */
-export default function AccessDeniedPage() {
+function AccessDeniedContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const { user, getUserRole } = useAuth()
@@ -130,5 +130,17 @@ export default function AccessDeniedPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function AccessDeniedPage() {
+  return (
+    <Suspense fallback={
+      <div className="container flex min-h-screen items-center justify-center px-4 py-16">
+        <div className="text-center">Cargando...</div>
+      </div>
+    }>
+      <AccessDeniedContent />
+    </Suspense>
   )
 }

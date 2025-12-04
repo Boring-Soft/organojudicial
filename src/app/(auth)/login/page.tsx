@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useAuth } from '@/providers/auth-provider'
 import { loginSchema, type LoginInput } from '@/lib/validations/auth'
-import { createClient } from '@/lib/supabase/client'
+import { supabase } from '@/lib/supabase/client'
 import { RolUsuario } from '@prisma/client'
 
 /**
@@ -22,6 +22,7 @@ import { RolUsuario } from '@prisma/client'
 export default function LoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { signIn } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -45,7 +46,6 @@ export default function LoginPage() {
    */
   const getEmailFromCI = async (ci: string): Promise<string | null> => {
     try {
-      const supabase = createClient()
       const { data, error } = await supabase
         .from('usuarios')
         .select('email')
@@ -68,7 +68,6 @@ export default function LoginPage() {
    */
   const getUserRole = async (userId: string): Promise<RolUsuario | null> => {
     try {
-      const supabase = createClient()
       const { data, error } = await supabase
         .from('usuarios')
         .select('rol')
@@ -127,46 +126,24 @@ export default function LoginPage() {
         email = emailFromCI
       }
 
-      // Intentar iniciar sesión usando Supabase directamente
-      const supabase = createClient()
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password: data.password,
-      })
+      // Intentar iniciar sesión usando el hook useAuth
+      await signIn(email, data.password)
 
-      if (authError) {
-        const errorMessage = authError.message
-        if (errorMessage?.includes('Invalid login credentials')) {
-          setError('Email o contraseña incorrectos')
-        } else if (errorMessage?.includes('Email not confirmed')) {
-          setError('Debes confirmar tu email antes de iniciar sesión')
-        } else {
-          setError('Error al iniciar sesión. Intenta nuevamente.')
-        }
-        setIsLoading(false)
-        return
-      }
-
-      if (!authData.user) {
-        setError('Error al iniciar sesión')
-        setIsLoading(false)
-        return
-      }
-
-      // Obtener el rol del usuario
-      const rol = await getUserRole(authData.user.id)
-
-      if (!rol) {
-        setError('No se encontró información del usuario en el sistema. Por favor contacta al administrador.')
-        setIsLoading(false)
-        return
-      }
-
-      // Redirigir según el rol
-      redirectByRole(rol)
-    } catch (err) {
+      // La redirección se maneja automáticamente en el AuthProvider
+    } catch (err: any) {
       console.error('Error en login:', err)
-      setError('Ocurrió un error inesperado. Por favor intenta nuevamente.')
+
+      // Manejar diferentes tipos de error
+      if (err.message?.includes('Invalid login credentials')) {
+        setError('Email o contraseña incorrectos')
+      } else if (err.message?.includes('Email not confirmed')) {
+        setError('Debes confirmar tu email antes de iniciar sesión')
+      } else if (err.message?.includes('User not found')) {
+        setError('No se encontró una cuenta con esas credenciales')
+      } else {
+        setError('Error al iniciar sesión. Por favor intenta nuevamente.')
+      }
+    } finally {
       setIsLoading(false)
     }
   }
