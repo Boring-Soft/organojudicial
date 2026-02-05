@@ -18,19 +18,19 @@
 -- y luego ejecuta el resto del script
 
 -- Insertar en tabla usuarios (REEMPLAZA LOS UUIDs CON LOS REALES)
-INSERT INTO usuarios ("userId", email, nombres, apellidos, ci, telefono, domicilio, rol)
+INSERT INTO usuarios (userId, email, nombres, apellidos, ci, telefono, domicilio, rol)
 VALUES
   -- Ciudadano
-  ('REEMPLAZAR-CON-UUID-CIUDADANO', 'ciudadano@sigpj.bo', 'Juan', 'Pérez Gómez', '12345678-LP', '+59170000001', 'Av. 6 de Agosto #123, La Paz', 'CIUDADANO'),
+  ('1bc15c75-475a-484b-91ac-b1cb1b00b60e', 'ciudadano@sigpj.bo', 'Juan', 'Pérez Gómez', '12345678-LP', '+59170000001', 'Av. 6 de Agosto #123, La Paz', 'CIUDADANO'),
 
   -- Abogado
-  ('REEMPLAZAR-CON-UUID-ABOGADO', 'abogado@sigpj.bo', 'María', 'Rodríguez López', '87654321-SC', '+59170000002', NULL, 'ABOGADO'),
+  ('9b70ff46-e937-493e-aa13-25a249f99e35', 'abogado@sigpj.bo', 'María', 'Rodríguez López', '87654321-SC', '+59170000002', NULL, 'ABOGADO'),
 
   -- Secretario
-  ('REEMPLAZAR-CON-UUID-SECRETARIO', 'secretario@sigpj.bo', 'Carlos', 'Mamani Quispe', '11223344-CB', '+59170000003', NULL, 'SECRETARIO'),
+  ('468cc36e-bfa6-4fbf-9d81-edbc306b00c8', 'secretario@sigpj.bo', 'Carlos', 'Mamani Quispe', '11223344-CB', '+59170000003', NULL, 'SECRETARIO'),
 
   -- Juez
-  ('REEMPLAZAR-CON-UUID-JUEZ', 'juez@sigpj.bo', 'Ana', 'Torres Vargas', '99887766-OR', '+59170000004', NULL, 'JUEZ');
+  ('547ca8c2-6be5-4f38-a530-a756c33e332f', 'juez@sigpj.bo', 'Ana', 'Torres Vargas', '99887766-OR', '+59170000004', NULL, 'JUEZ');
 
 -- Actualizar campos específicos por rol
 UPDATE usuarios
@@ -42,7 +42,7 @@ SET juzgado = 'Tribunal Departamental de Justicia - La Paz'
 WHERE email IN ('secretario@sigpj.bo', 'juez@sigpj.bo');
 
 -- Verificar que se crearon correctamente
-SELECT id, "userId", email, nombres, apellidos, rol, activo
+SELECT id, userId, email, nombres, apellidos, rol, activo
 FROM usuarios
 WHERE email LIKE '%sigpj.bo'
 ORDER BY rol;
